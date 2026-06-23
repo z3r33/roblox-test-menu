@@ -1,200 +1,158 @@
--- Pro Admin Test Menu for your own Roblox game/testing place.
--- Use it to test your anti-cheat. Keep real permissions and validation server-side.
+	updateToggle(speedButton, "Speed", state.speed)
+	setStatus("WalkSpeed = " .. (state.speed and "40" or "16"))
+end)
 
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+jumpButton = makeButton("JumpLeft", "Jump: OFF", 48, function()
+	state.jump = not state.jump
+	local humanoid = getHumanoid()
+	if humanoid then
+		humanoid.JumpPower = state.jump and 90 or 50
+	end
+	updateToggle(jumpButton, "Jump", state.jump)
+	setStatus("JumpPower = " .. (state.jump and "90" or "50"))
+end)
 
-local player = Players.LocalPlayer
-local mouse = player:GetMouse()
+noclipButton = makeButton("NoclipRight", "Noclip: OFF", 48, function()
+	state.noclip = not state.noclip
+	updateToggle(noclipButton, "Noclip", state.noclip)
+	setStatus("Noclip " .. (state.noclip and "active" or "desactive"))
+end)
 
-local state = {
-	open = true,
-	godmode = false,
-	speed = false,
-	jump = false,
-	noclip = false,
-	esp = false,
-	fullbright = false,
-}
+espButton = makeButton("EspLeft", "ESP: OFF", 96, function()
+	state.esp = not state.esp
+	updateToggle(espButton, "ESP", state.esp)
+	refreshEsp()
+	setStatus("ESP " .. (state.esp and "active" or "desactive"))
+end)
 
-local connections = {}
-local espObjects = {}
+brightButton = makeButton("BrightRight", "Fullbright: OFF", 96, function()
+	state.fullbright = not state.fullbright
+	updateToggle(brightButton, "Fullbright", state.fullbright)
+	setStatus("Fullbright " .. (state.fullbright and "active" or "desactive"))
+end)
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AdminLoadstringMenu"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
+makeButton("HealLeft", "Heal", 144, function()
+	local humanoid = getHumanoid()
+	if humanoid then
+		humanoid.Health = humanoid.MaxHealth
+	end
+	setStatus("Vie remise au maximum")
+end)
 
-local panel = Instance.new("Frame")
-panel.Name = "Panel"
-panel.Size = UDim2.fromOffset(330, 360)
-panel.Position = UDim2.fromOffset(32, 120)
-panel.BackgroundColor3 = Color3.fromRGB(11, 11, 13)
-panel.BorderSizePixel = 0
-panel.Active = true
-panel.Parent = screenGui
+makeButton("ResetRight", "Reset", 144, function()
+	state.godmode = false
+	state.speed = false
+	state.jump = false
+	state.noclip = false
+	state.esp = false
+	state.fullbright = false
 
-local panelCorner = Instance.new("UICorner")
-panelCorner.CornerRadius = UDim.new(0, 8)
-panelCorner.Parent = panel
+	local humanoid = getHumanoid()
+	if humanoid then
+		humanoid.WalkSpeed = 16
+		humanoid.JumpPower = 50
+	end
 
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(70, 70, 78)
-stroke.Thickness = 1
-stroke.Parent = panel
+	clearEsp()
+	updateToggle(godButton, "Godmode", false)
+	updateToggle(speedButton, "Speed", false)
+	updateToggle(jumpButton, "Jump", false)
+	updateToggle(noclipButton, "Noclip", false)
+	updateToggle(espButton, "ESP", false)
+	updateToggle(brightButton, "Fullbright", false)
+	setStatus("Options reset")
+end)
 
-local header = Instance.new("Frame")
-header.Name = "Header"
-header.Size = UDim2.new(1, 0, 0, 48)
-header.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
-header.BorderSizePixel = 0
-header.Parent = panel
+local dragging = false
+local dragStart
+local startPosition
 
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 8)
-headerCorner.Parent = header
+header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPosition = panel.Position
+	end
+end)
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -86, 1, 0)
-title.Position = UDim2.fromOffset(14, 0)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.Text = "Admin Test Kit"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 18
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = header
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
 
-local hint = Instance.new("TextLabel")
-hint.Size = UDim2.fromOffset(74, 1)
-hint.Position = UDim2.new(1, -116, 0, 24)
-hint.BackgroundTransparency = 1
-hint.Font = Enum.Font.Gotham
-hint.Text = "K toggle"
-hint.TextColor3 = Color3.fromRGB(170, 170, 178)
-hint.TextSize = 12
-hint.TextXAlignment = Enum.TextXAlignment.Right
-hint.Parent = header
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		panel.Position = UDim2.new(
+			startPosition.X.Scale,
+			startPosition.X.Offset + delta.X,
+			startPosition.Y.Scale,
+			startPosition.Y.Offset + delta.Y
+		)
+	end
+end)
 
-local closeButton = Instance.new("TextButton")
-closeButton.Name = "Close"
-closeButton.Size = UDim2.fromOffset(34, 30)
-closeButton.Position = UDim2.new(1, -42, 0, 9)
-closeButton.BackgroundColor3 = Color3.fromRGB(42, 42, 48)
-closeButton.BorderSizePixel = 0
-closeButton.Font = Enum.Font.GothamBold
-closeButton.Text = "X"
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextSize = 14
-closeButton.Parent = header
+closeButton.MouseButton1Click:Connect(function()
+	setOpen(false)
+end)
 
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 6)
-closeCorner.Parent = closeButton
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then
+		return
+	end
 
-local body = Instance.new("Frame")
-body.Name = "Body"
-body.Size = UDim2.new(1, -24, 1, -68)
-body.Position = UDim2.fromOffset(12, 58)
-body.BackgroundTransparency = 1
-body.Parent = panel
+	if input.KeyCode == Enum.KeyCode.K then
+		setOpen(not state.open)
+	end
+end)
 
-local status = Instance.new("TextLabel")
-status.Name = "Status"
-status.Size = UDim2.new(1, 0, 0, 24)
-status.Position = UDim2.new(0, 0, 1, -24)
-status.BackgroundTransparency = 1
-status.Font = Enum.Font.Gotham
-status.Text = "Pret - menu de test local"
-status.TextColor3 = Color3.fromRGB(185, 185, 194)
-status.TextSize = 13
-status.TextXAlignment = Enum.TextXAlignment.Left
-status.Parent = body
+table.insert(connections, RunService.Heartbeat:Connect(function()
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
-local function getHumanoid()
-	local character = player.Character or player.CharacterAdded:Wait()
-	return character:FindFirstChildOfClass("Humanoid")
-end
+	if humanoid and state.godmode and humanoid.Health < humanoid.MaxHealth then
+		humanoid.Health = humanoid.MaxHealth
+	end
 
-local function setStatus(text)
-	status.Text = text
-end
-
-local function setOpen(open)
-	state.open = open
-	panel.Visible = open
-end
-
-local function makeButton(name, label, y, callback)
-	local button = Instance.new("TextButton")
-	button.Name = name
-	button.Size = UDim2.new(0.5, -6, 0, 38)
-	button.Position = UDim2.fromOffset((name:find("Right") and 156 or 0), y)
-	button.BackgroundColor3 = Color3.fromRGB(238, 238, 242)
-	button.BorderSizePixel = 0
-	button.Font = Enum.Font.GothamSemibold
-	button.Text = label
-	button.TextColor3 = Color3.fromRGB(14, 14, 16)
-	button.TextSize = 14
-	button.Parent = body
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = button
-
-	button.MouseButton1Click:Connect(callback)
-	return button
-end
-
-local function updateToggle(button, label, enabled)
-	button.Text = label .. ": " .. (enabled and "ON" or "OFF")
-	button.BackgroundColor3 = enabled and Color3.fromRGB(125, 220, 150) or Color3.fromRGB(238, 238, 242)
-end
-
-local godButton
-local speedButton
-local jumpButton
-local noclipButton
-local espButton
-local brightButton
-
-local function clearEsp()
-	for _, objects in pairs(espObjects) do
-		for _, object in ipairs(objects) do
-			if object then
-				object:Destroy()
+	if character and state.noclip then
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
 			end
 		end
 	end
-	table.clear(espObjects)
+
+	if state.fullbright then
+		game:GetService("Lighting").Brightness = 3
+		game:GetService("Lighting").ClockTime = 14
+		game:GetService("Lighting").FogEnd = 100000
+	end
+end))
+
+Players.PlayerAdded:Connect(function(target)
+	target.CharacterAdded:Connect(function()
+		task.wait(1)
+		if state.esp then
+			refreshEsp()
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(target)
+	if espObjects[target] then
+		for _, object in ipairs(espObjects[target]) do
+			object:Destroy()
+		end
+		espObjects[target] = nil
+	end
+end)
+
+for _, target in ipairs(Players:GetPlayers()) do
+	target.CharacterAdded:Connect(function()
+		task.wait(1)
+		if state.esp then
+			refreshEsp()
+		end
+	end)
 end
-
-local function addEspFor(target)
-	if target == player or espObjects[target] then
-		return
-	end
-
-	local character = target.Character
-	if not character then
-		return
-	end
-
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not root then
-		return
-	end
-
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "AdminTestESP"
-	highlight.FillColor = Color3.fromRGB(255, 70, 70)
-	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-	highlight.FillTransparency = 0.65
-	highlight.OutlineTransparency = 0
-	highlight.Adornee = character
-	highlight.Parent = character
-
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "AdminTestName"
-	billboard.Size = UDim2.fromOffset(160, 32)
-	billboard.StudsOffset = Vector3.new(0, 3.2, 0)
